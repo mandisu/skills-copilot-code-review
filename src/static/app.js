@@ -159,8 +159,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Session is valid, update user data
       const userData = await response.json();
-      currentUser = userData;
-      localStorage.setItem("currentUser", JSON.stringify(userData));
+      currentUser = {
+        ...userData,
+        access_token: currentUser.access_token,
+        token_type: currentUser.token_type || "bearer",
+      };
+      localStorage.setItem("currentUser", JSON.stringify(currentUser));
       updateAuthUI();
     } catch (error) {
       console.error("Error validating session:", error);
@@ -234,6 +238,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Logout function
   function logout() {
+    if (currentUser?.access_token) {
+      fetch("/auth/logout", {
+        method: "POST",
+        headers: getAuthHeaders(),
+      }).catch((error) => {
+        console.error("Error during logout:", error);
+      });
+    }
+
     currentUser = null;
     localStorage.removeItem("currentUser");
     updateAuthUI();

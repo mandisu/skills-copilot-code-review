@@ -38,6 +38,9 @@ A super simple FastAPI application that allows students to view and sign up for 
 | POST   | `/announcements` (Authorization: Bearer token)                    | Create an announcement                                              |
 | PUT    | `/announcements/{announcement_id}` (Authorization: Bearer token)  | Update an announcement                                              |
 | DELETE | `/announcements/{announcement_id}` (Authorization: Bearer token)  | Delete an announcement                                              |
+| POST   | `/auth/login?username={username}&password={password}`             | Login and receive a bearer token                                    |
+| GET    | `/auth/check-session` (Authorization: Bearer token)              | Validate an existing teacher token                                  |
+| POST   | `/auth/logout` (Authorization: Bearer token)                     | Invalidate the current teacher token                                |
 
 ## Data Model
 
