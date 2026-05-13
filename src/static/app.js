@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentUser = {
         ...userData,
         access_token: currentUser.access_token,
-        token_type: currentUser.token_type || "bearer",
+        token_type: currentUser.token_type,
       };
       localStorage.setItem("currentUser", JSON.stringify(currentUser));
       updateAuthUI();
@@ -501,7 +501,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function fetchAnnouncements(options = {}) {
-    const includeAll = options.includeAll === true && Boolean(currentUser);
+    const includeAll = options.includeAll === true && currentUser !== null;
     try {
       const response = await fetch(
         includeAll ? "/announcements" : "/announcements/active"

@@ -16,11 +16,15 @@ router = APIRouter(
     tags=["auth"]
 )
 
+DEFAULT_SESSION_HOURS = 8
+TOKEN_BYTES = 32
+
+
 def _load_session_duration() -> timedelta:
     try:
-        hours = int(os.getenv("AUTH_SESSION_HOURS", "8"))
+        hours = int(os.getenv("AUTH_SESSION_HOURS", str(DEFAULT_SESSION_HOURS)))
     except ValueError:
-        hours = 8
+        hours = DEFAULT_SESSION_HOURS
 
     return timedelta(hours=max(1, hours))
 
@@ -84,7 +88,7 @@ def login(username: str, password: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=401, detail="Invalid username or password")
 
-    token = secrets.token_urlsafe(32)
+    token = secrets.token_urlsafe(TOKEN_BYTES)
     active_sessions[token] = {
         "username": teacher["username"],
         "expires_at": datetime.now(timezone.utc) + SESSION_DURATION,
