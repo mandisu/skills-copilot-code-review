@@ -3,7 +3,8 @@ Authentication endpoints for the High School Management System API
 """
 
 import secrets
-from datetime import datetime, timedelta
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Header, HTTPException
@@ -15,7 +16,16 @@ router = APIRouter(
     tags=["auth"]
 )
 
-SESSION_DURATION = timedelta(hours=8)
+def _load_session_duration() -> timedelta:
+    try:
+        hours = int(os.getenv("AUTH_SESSION_HOURS", "8"))
+    except ValueError:
+        hours = 8
+
+    return timedelta(hours=max(1, hours))
+
+
+SESSION_DURATION = _load_session_duration()
 active_sessions: Dict[str, Dict[str, Any]] = {}
 
 
@@ -40,7 +50,10 @@ def get_authenticated_teacher(authorization: Optional[str]) -> Dict[str, Any]:
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
     expires_at = session.get("expires_at")
-    if not isinstance(expires_at, datetime) or expires_at <= datetime.utcnow():
+    if (
+        not isinstance(expires_at, datetime)
+        or expires_at <= datetime.now(timezone.utc)
+    ):
         active_sessions.pop(token, None)
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
@@ -68,7 +81,7 @@ def login(username: str, password: str) -> Dict[str, Any]:
     token = secrets.token_urlsafe(32)
     active_sessions[token] = {
         "username": teacher["username"],
-        "expires_at": datetime.utcnow() + SESSION_DURATION,
+        "expires_at": datetime.now(timezone.utc) + SESSION_DURATION,
     }
 
     # Return teacher information (excluding password)
