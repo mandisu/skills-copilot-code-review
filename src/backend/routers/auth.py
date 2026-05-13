@@ -41,6 +41,19 @@ def _extract_bearer_token(authorization: Optional[str]) -> Optional[str]:
 
 
 def get_authenticated_teacher(authorization: Optional[str]) -> Dict[str, Any]:
+    token = validate_session_token(authorization)
+    session = active_sessions.get(token)
+    username = session["username"]
+
+    teacher = teachers_collection.find_one({"_id": username})
+    if not teacher:
+        active_sessions.pop(token, None)
+        raise HTTPException(status_code=401, detail="Invalid authentication token")
+
+    return teacher
+
+
+def validate_session_token(authorization: Optional[str]) -> str:
     token = _extract_bearer_token(authorization)
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
@@ -57,14 +70,7 @@ def get_authenticated_teacher(authorization: Optional[str]) -> Dict[str, Any]:
         active_sessions.pop(token, None)
         raise HTTPException(status_code=401, detail="Invalid authentication token")
 
-    username = session["username"]
-
-    teacher = teachers_collection.find_one({"_id": username})
-    if not teacher:
-        active_sessions.pop(token, None)
-        raise HTTPException(status_code=401, detail="Invalid authentication token")
-
-    return teacher
+    return token
 
 
 @router.post("/login")
@@ -108,10 +114,6 @@ def check_session(authorization: Optional[str] = Header(None)) -> Dict[str, Any]
 
 @router.post("/logout")
 def logout(authorization: Optional[str] = Header(None)) -> Dict[str, str]:
-    token = _extract_bearer_token(authorization)
-    if not token:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    get_authenticated_teacher(authorization)
+    token = validate_session_token(authorization)
     active_sessions.pop(token, None)
     return {"message": "Logged out"}

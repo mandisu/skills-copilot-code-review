@@ -37,10 +37,6 @@ def _parse_date(value: Optional[str], field_name: str) -> Optional[date]:
         ) from exc
 
 
-def _require_teacher(authorization: Optional[str]) -> None:
-    get_authenticated_teacher(authorization)
-
-
 def _validate_payload(payload: AnnouncementPayload) -> Dict[str, Any]:
     message = payload.message.strip()
     if not message:
@@ -115,7 +111,7 @@ def create_announcement(
     payload: AnnouncementPayload,
     authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
-    _require_teacher(authorization)
+    get_authenticated_teacher(authorization)
     values = _validate_payload(payload)
 
     now = datetime.utcnow().isoformat()
@@ -138,7 +134,7 @@ def update_announcement(
     payload: AnnouncementPayload,
     authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
-    _require_teacher(authorization)
+    get_authenticated_teacher(authorization)
     values = _validate_payload(payload)
 
     announcement = announcements_collection.find_one({"_id": announcement_id})
@@ -170,7 +166,7 @@ def delete_announcement(
     announcement_id: str,
     authorization: Optional[str] = Header(None)
 ) -> Dict[str, str]:
-    _require_teacher(authorization)
+    get_authenticated_teacher(authorization)
 
     result = announcements_collection.delete_one({"_id": announcement_id})
     if result.deleted_count == 0:

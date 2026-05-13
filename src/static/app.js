@@ -327,12 +327,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    await fetchAnnouncements({ includeAll: true });
-    renderAnnouncementsList();
     announcementsModal.classList.remove("hidden");
+    announcementsList.innerHTML = `
+      <div class="empty-state">
+        <h5>Loading announcements...</h5>
+      </div>
+    `;
     setTimeout(() => {
       announcementsModal.classList.add("show");
     }, 10);
+
+    await fetchAnnouncements({ includeAll: true });
+    renderAnnouncementsList();
   }
 
   function closeAnnouncementsModalHandler() {
