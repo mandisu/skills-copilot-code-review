@@ -60,6 +60,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Authentication state
   let currentUser = null;
 
+  function getAuthHeaders(headers = {}) {
+    if (currentUser?.access_token) {
+      return {
+        ...headers,
+        Authorization: `Bearer ${currentUser.access_token}`,
+      };
+    }
+
+    return headers;
+  }
+
   // Time range mappings for the dropdown
   const timeRanges = {
     morning: { start: "06:00", end: "08:00" }, // Before school hours
@@ -122,7 +133,7 @@ document.addEventListener("DOMContentLoaded", () => {
         currentUser = JSON.parse(savedUser);
         updateAuthUI();
         // Verify the stored user with the server
-        validateUserSession(currentUser.username);
+        validateUserSession();
       } catch (error) {
         console.error("Error parsing saved user", error);
         logout(); // Clear invalid data
@@ -134,11 +145,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Validate user session with the server
-  async function validateUserSession(username) {
+  async function validateUserSession() {
     try {
-      const response = await fetch(
-        `/auth/check-session?username=${encodeURIComponent(username)}`
-      );
+      const response = await fetch("/auth/check-session", {
+        headers: getAuthHeaders(),
+      });
 
       if (!response.ok) {
         // Session invalid, log out
@@ -298,11 +309,12 @@ document.addEventListener("DOMContentLoaded", () => {
     hideAnnouncementFormMessage();
   }
 
-  function openAnnouncementsModal() {
+  async function openAnnouncementsModal() {
     if (!currentUser) {
       return;
     }
 
+    await fetchAnnouncements({ includeAll: true });
     renderAnnouncementsList();
     announcementsModal.classList.remove("hidden");
     setTimeout(() => {
@@ -316,6 +328,15 @@ document.addEventListener("DOMContentLoaded", () => {
       announcementsModal.classList.add("hidden");
       resetAnnouncementForm();
     }, 300);
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   function getAnnouncementStatus(announcement) {
@@ -354,7 +375,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="announcement-banner-list">
           ${activeAnnouncements.map((announcement) => `
             <article class="announcement-banner-card">
-              <p class="announcement-banner-message">${announcement.message}</p>
+              <p class="announcement-banner-message">${escapeHtml(announcement.message)}</p>
               <p class="announcement-banner-meta">
                 ${announcement.start_date ? `Starts ${formatAnnouncementDate(announcement.start_date)}` : "Available now"}
                 <span class="announcement-meta-divider">·</span>
@@ -394,7 +415,7 @@ document.addEventListener("DOMContentLoaded", () => {
               → ${formatAnnouncementDate(announcement.expiration_date)}
             </span>
           </div>
-          <p class="announcement-item-message">${announcement.message}</p>
+          <p class="announcement-item-message">${escapeHtml(announcement.message)}</p>
           <div class="announcement-item-actions">
             <button class="secondary-button announcement-edit-button" data-announcement-id="${announcement.id}">Edit</button>
             <button class="danger-button announcement-delete-button" data-announcement-id="${announcement.id}">Delete</button>
@@ -437,9 +458,10 @@ document.addEventListener("DOMContentLoaded", () => {
       async () => {
         try {
           const response = await fetch(
-            `/announcements/${encodeURIComponent(announcement.id)}?teacher_username=${encodeURIComponent(currentUser.username)}`,
+            `/announcements/${encodeURIComponent(announcement.id)}`,
             {
               method: "DELETE",
+              headers: getAuthHeaders(),
             }
           );
 
@@ -447,7 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (response.ok) {
             showAnnouncementFormMessage(result.message, "success");
-            await fetchAnnouncements();
+            await fetchAnnouncements({ includeAll: true });
           } else {
             showAnnouncementFormMessage(result.detail || "Failed to delete announcement", "error");
           }
@@ -459,14 +481,17 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  async function fetchAnnouncements() {
+  async function fetchAnnouncements(options = {}) {
+    const includeAll = options.includeAll === true && Boolean(currentUser);
     try {
-      const response = await fetch("/announcements");
+      const response = await fetch(
+        includeAll ? "/announcements" : "/announcements/active"
+      );
       const announcements = await response.json();
       allAnnouncements = Array.isArray(announcements) ? announcements : [];
       renderAnnouncementBanner();
 
-      if (!announcementsModal.classList.contains("hidden")) {
+      if (includeAll && !announcementsModal.classList.contains("hidden")) {
         renderAnnouncementsList();
       }
     } catch (error) {
@@ -503,13 +528,13 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const response = await fetch(
         announcementId
-          ? `/announcements/${encodeURIComponent(announcementId)}?teacher_username=${encodeURIComponent(currentUser.username)}`
-          : `/announcements?teacher_username=${encodeURIComponent(currentUser.username)}`,
+          ? `/announcements/${encodeURIComponent(announcementId)}`
+          : "/announcements",
         {
           method: announcementId ? "PUT" : "POST",
-          headers: {
+          headers: getAuthHeaders({
             "Content-Type": "application/json",
-          },
+          }),
           body: JSON.stringify(payload),
         }
       );
@@ -521,7 +546,7 @@ document.addEventListener("DOMContentLoaded", () => {
           announcementId ? "Announcement updated." : "Announcement created.",
           "success"
         );
-        await fetchAnnouncements();
+        await fetchAnnouncements({ includeAll: true });
         resetAnnouncementForm();
       } else {
         showAnnouncementFormMessage(result.detail || "Unable to save announcement.", "error");

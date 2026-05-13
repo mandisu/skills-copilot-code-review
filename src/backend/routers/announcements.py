@@ -6,10 +6,11 @@ from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from ..database import announcements_collection, teachers_collection
+from ..database import announcements_collection
+from .auth import get_authenticated_teacher
 
 router = APIRouter(
     prefix="/announcements",
@@ -36,15 +37,8 @@ def _parse_date(value: Optional[str], field_name: str) -> Optional[date]:
         ) from exc
 
 
-def _require_teacher(username: Optional[str]) -> None:
-    if not username:
-        raise HTTPException(
-            status_code=401, detail="Authentication required for this action")
-
-    teacher = teachers_collection.find_one({"_id": username})
-    if not teacher:
-        raise HTTPException(
-            status_code=401, detail="Invalid teacher credentials")
+def _require_teacher(authorization: Optional[str]) -> None:
+    get_authenticated_teacher(authorization)
 
 
 def _validate_payload(payload: AnnouncementPayload) -> Dict[str, Any]:
@@ -119,9 +113,9 @@ def get_active_announcements() -> List[Dict[str, Any]]:
 @router.post("/", status_code=201)
 def create_announcement(
     payload: AnnouncementPayload,
-    teacher_username: Optional[str] = Query(None)
+    authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
-    _require_teacher(teacher_username)
+    _require_teacher(authorization)
     values = _validate_payload(payload)
 
     now = datetime.utcnow().isoformat()
@@ -142,9 +136,9 @@ def create_announcement(
 def update_announcement(
     announcement_id: str,
     payload: AnnouncementPayload,
-    teacher_username: Optional[str] = Query(None)
+    authorization: Optional[str] = Header(None)
 ) -> Dict[str, Any]:
-    _require_teacher(teacher_username)
+    _require_teacher(authorization)
     values = _validate_payload(payload)
 
     announcement = announcements_collection.find_one({"_id": announcement_id})
@@ -174,9 +168,9 @@ def update_announcement(
 @router.delete("/{announcement_id}")
 def delete_announcement(
     announcement_id: str,
-    teacher_username: Optional[str] = Query(None)
+    authorization: Optional[str] = Header(None)
 ) -> Dict[str, str]:
-    _require_teacher(teacher_username)
+    _require_teacher(authorization)
 
     result = announcements_collection.delete_one({"_id": announcement_id})
     if result.deleted_count == 0:

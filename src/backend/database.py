@@ -3,7 +3,6 @@ MongoDB database configuration and setup for Mergington High School API
 """
 
 from datetime import datetime
-from uuid import uuid4
 
 from pymongo import MongoClient
 from argon2 import PasswordHasher, exceptions as argon2_exceptions
